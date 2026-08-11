@@ -6,6 +6,7 @@ import {
   bit,
   int,
   index,
+  uniqueIndex,
 } from "drizzle-orm/mssql-core";
 
 export const custom_user = mssqlTable("custom_user", {
@@ -51,7 +52,8 @@ export const custom_account = mssqlTable(
   "custom_account",
   {
     id: varchar("id", { length: 36 }).primaryKey(),
-    accountId: varchar("account_id", { length: "max" }).notNull(),
+    issuer: varchar("issuer", { length: 255 }).notNull(),
+    accountId: varchar("account_id", { length: 255 }).notNull(),
     providerId: varchar("provider_id", { length: "max" }).notNull(),
     userId: varchar("user_id", { length: 36 })
       .notNull()
@@ -74,7 +76,13 @@ export const custom_account = mssqlTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("custom_account_userId_idx").on(table.userId)],
+  (table) => [
+    uniqueIndex("custom_account_issuer_accountId_uidx").on(
+      table.issuer,
+      table.accountId,
+    ),
+    index("custom_account_userId_idx").on(table.userId),
+  ],
 );
 
 export const custom_verification = mssqlTable(

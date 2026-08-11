@@ -197,15 +197,17 @@ export const generateDrizzleSchema: SchemaGenerator = async ({
 									: field.index
 										? `varchar('${name}', { length: 255 })`
 										: `text('${name}')`,
-					mssql: field.unique
-						? mssqlVarchar(255)
-						: field.references
-							? mssqlVarchar(36)
-							: field.sortable
-								? mssqlVarchar(255)
-								: field.index
+					mssql: tableIndexStringLength
+						? mssqlVarchar(tableIndexStringLength)
+						: field.unique
+							? mssqlVarchar(255)
+							: field.references
+								? mssqlVarchar(36)
+								: field.sortable
 									? mssqlVarchar(255)
-									: mssqlVarchar("max"),
+									: field.index
+										? mssqlVarchar(255)
+										: mssqlVarchar("max"),
 				},
 				boolean: {
 					sqlite: `integer('${name}', { mode: 'boolean' })`,
@@ -343,10 +345,10 @@ export const generateDrizzleSchema: SchemaGenerator = async ({
 							let type = getType(
 								fieldName,
 								attr,
-								databaseType === "mysql"
+								databaseType === "mysql" || databaseType === "mssql"
 									? getDatabaseIndexStringLength({
 											columnName: fieldName,
-											dialect: "mysql",
+											dialect: databaseType,
 											fields,
 											indexes: resolvedTableIndexes,
 										})

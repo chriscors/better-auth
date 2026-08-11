@@ -587,4 +587,56 @@ describe("generate drizzle schema for all databases with passkey plugin", async 
 			"./__snapshots__/auth-schema-mssql-passkey.txt",
 		);
 	});
+
+	/**
+	 * SQL Server rejects `varchar(max)` as an index key column, so every string
+	 * column that participates in an index needs a bounded length. Asserted
+	 * explicitly because the snapshots above would happily record a regression.
+	 */
+	it("should never key an MSSQL index on a varchar(max) column", async () => {
+		const schema = await generateDrizzleSchema({
+			file: "test.drizzle",
+			adapter: drizzleAdapter(
+				{},
+				{
+					provider: "mssql",
+					schema: {},
+				},
+			)({} as BetterAuthOptions),
+			options: {
+				database: drizzleAdapter(
+					{},
+					{
+						provider: "mssql",
+						schema: {},
+					},
+				),
+				plugins: [twoFactor(), username(), passkey()],
+			},
+		});
+
+		const schemaCode = schema.code ?? "";
+		const unboundedColumns = new Set(
+			[
+				...schemaCode.matchAll(
+					/(\w+):\s*varchar\(\s*"[^"]+"\s*,\s*\{\s*length:\s*"max"/g,
+				),
+			].map(([, property]) => property!),
+		);
+		const indexKeyColumns = [
+			...schemaCode.matchAll(
+				/(?:uniqueIndex|index)\(\s*"([^"]+)"\s*\)\s*\.on\(([^)]*)\)/g,
+			),
+		].flatMap(([, indexName, columns]) =>
+			[...columns!.matchAll(/table\.(\w+)/g)].map(([, column]) => ({
+				indexName: indexName!,
+				column: column!,
+			})),
+		);
+
+		expect(indexKeyColumns.length).toBeGreaterThan(0);
+		expect(
+			indexKeyColumns.filter(({ column }) => unboundedColumns.has(column)),
+		).toEqual([]);
+	});
 });
